@@ -1,1 +1,1 @@
-## Stuff for learning neural networks
+## Stuff for learning various stuff
