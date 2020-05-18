@@ -1,5 +1,6 @@
 ## Example of GMMs for phonemes
 Source: https://raw.githubusercontent.com/sknadig/ASR_2018_T01/master/README.md
+To use download TIMIT dataset (example is in TIMIT folder)
 
 ## Data pre processing
 Run ```python import_timit.py --timit=./TIMIT --preprocessed=False```
