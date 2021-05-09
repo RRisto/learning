@@ -24,7 +24,7 @@ class Classifier:
     def fit_model(self, X, Y, n_principal_components=None):
         self.model = Model(X, Y, n_principal_components)
 
-    def predict(self, data, space='D', normalize_logps=False):
+    def predict(self, data, space='D', normalize_logps=False, return_data=False):
         """ Classifies data into categories present in the training data.
 
         DESCRIPTION
@@ -76,6 +76,8 @@ class Classifier:
 
         logpps_k, K = self.calc_logp_pp_categories(data, normalize_logps)
         predictions = K[np.argmax(logpps_k, axis=-1)]
+        if return_data:
+            return predictions, logpps_k, data
 
         return predictions, logpps_k
 
