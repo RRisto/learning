@@ -5,7 +5,7 @@ from sklearn.datasets import fetch_20newsgroups
 import nltk
 from nltk.corpus import stopwords
 
-from lda.ldamodel import LdaModel
+from lda.ldamodel2 import LdaModel
 
 cats = ['comp.windows.x', 'talk.religion.misc']
 sw_nltk = stopwords.words('english')

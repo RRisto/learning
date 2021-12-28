@@ -5,7 +5,7 @@ from sklearn.datasets import fetch_20newsgroups
 import nltk
 from nltk.corpus import stopwords
 
-from lda.ldamodel import LdaModel
+from gensim.models.ldamodel import LdaModel
 
 cats = ['comp.windows.x', 'talk.religion.misc']
 sw_nltk = stopwords.words('english')
@@ -33,3 +33,4 @@ for topic_id in range(3):
     topic_words=lda.get_topic_terms(topic_id)
     for word_weight in topic_words:
         print(common_dictionary[word_weight[0]])
+

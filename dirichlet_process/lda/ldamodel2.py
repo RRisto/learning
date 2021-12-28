@@ -452,110 +452,110 @@ class LdaModel():
         assert self.expElogbeta.dtype == self.dtype
 
     def inference(self, chunk, collect_sstats=False):
-            """Given a chunk of sparse document vectors, estimate gamma (parameters controlling the topic weights)
-            for each document in the chunk.
+        """Given a chunk of sparse document vectors, estimate gamma (parameters controlling the topic weights)
+        for each document in the chunk.
 
-            This function does not modify the model. The whole input chunk of document is assumed to fit in RAM;
-            chunking of a large corpus must be done earlier in the pipeline. Avoids computing the `phi` variational
-            parameter directly using the optimization presented in
-            `Lee, Seung: Algorithms for non-negative matrix factorization"
-            <https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf>`_.
+        This function does not modify the model. The whole input chunk of document is assumed to fit in RAM;
+        chunking of a large corpus must be done earlier in the pipeline. Avoids computing the `phi` variational
+        parameter directly using the optimization presented in
+        `Lee, Seung: Algorithms for non-negative matrix factorization"
+        <https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf>`_.
 
-            Parameters
-            ----------
-            chunk : list of list of (int, float)
-                The corpus chunk on which the inference step will be performed.
-            collect_sstats : bool, optional
-                If set to True, also collect (and return) sufficient statistics needed to update the model's topic-word
-                distributions.
+        Parameters
+        ----------
+        chunk : list of list of (int, float)
+            The corpus chunk on which the inference step will be performed.
+        collect_sstats : bool, optional
+            If set to True, also collect (and return) sufficient statistics needed to update the model's topic-word
+            distributions.
 
-            Returns
-            -------
-            (numpy.ndarray, {numpy.ndarray, None})
-                The first element is always returned and it corresponds to the states gamma matrix. The second element is
-                only returned if `collect_sstats` == True and corresponds to the sufficient statistics for the M step.
+        Returns
+        -------
+        (numpy.ndarray, {numpy.ndarray, None})
+            The first element is always returned and it corresponds to the states gamma matrix. The second element is
+            only returned if `collect_sstats` == True and corresponds to the sufficient statistics for the M step.
 
-            """
-            try:
-                len(chunk)
-            except TypeError:
-                # convert iterators/generators to plain list, so we have len() etc.
-                chunk = list(chunk)
-            if len(chunk) > 1:
-                logger.debug("performing inference on a chunk of %i documents", len(chunk))
+        """
+        try:
+            len(chunk)
+        except TypeError:
+            # convert iterators/generators to plain list, so we have len() etc.
+            chunk = list(chunk)
+        if len(chunk) > 1:
+            logger.debug("performing inference on a chunk of %i documents", len(chunk))
 
-            # Initialize the variational distribution q(theta|gamma) for the chunk
-            gamma = self.random_state.gamma(100., 1. / 100., (len(chunk), self.num_topics)).astype(self.dtype, copy=False)
-            Elogtheta = dirichlet_expectation(gamma)
-            expElogtheta = np.exp(Elogtheta)
+        # Initialize the variational distribution q(theta|gamma) for the chunk
+        gamma = self.random_state.gamma(100., 1. / 100., (len(chunk), self.num_topics)).astype(self.dtype, copy=False)
+        Elogtheta = dirichlet_expectation(gamma)
+        expElogtheta = np.exp(Elogtheta)
 
-            assert Elogtheta.dtype == self.dtype
-            assert expElogtheta.dtype == self.dtype
+        assert Elogtheta.dtype == self.dtype
+        assert expElogtheta.dtype == self.dtype
 
-            if collect_sstats:
-                sstats = np.zeros_like(self.expElogbeta, dtype=self.dtype)
+        if collect_sstats:
+            sstats = np.zeros_like(self.expElogbeta, dtype=self.dtype)
+        else:
+            sstats = None
+        converged = 0
+
+        # Now, for each document d update that document's gamma and phi
+        # Inference code copied from Hoffman's `onlineldavb.py` (esp. the
+        # Lee&Seung trick which speeds things up by an order of magnitude, compared
+        # to Blei's original LDA-C code, cool!).
+        integer_types = (int, np.integer,)
+        epsilon = np.finfo(self.dtype).eps
+        for d, doc in enumerate(chunk):
+            if len(doc) > 0 and not isinstance(doc[0][0], integer_types):
+                # make sure the term IDs are ints, otherwise np will get upset
+                ids = [int(idx) for idx, _ in doc]
             else:
-                sstats = None
-            converged = 0
+                ids = [idx for idx, _ in doc]
+            cts = np.fromiter((cnt for _, cnt in doc), dtype=self.dtype, count=len(doc))
+            gammad = gamma[d, :]
+            Elogthetad = Elogtheta[d, :]
+            expElogthetad = expElogtheta[d, :]
+            expElogbetad = self.expElogbeta[:, ids]
 
-            # Now, for each document d update that document's gamma and phi
-            # Inference code copied from Hoffman's `onlineldavb.py` (esp. the
-            # Lee&Seung trick which speeds things up by an order of magnitude, compared
-            # to Blei's original LDA-C code, cool!).
-            integer_types = (int, np.integer,)
-            epsilon = np.finfo(self.dtype).eps
-            for d, doc in enumerate(chunk):
-                if len(doc) > 0 and not isinstance(doc[0][0], integer_types):
-                    # make sure the term IDs are ints, otherwise np will get upset
-                    ids = [int(idx) for idx, _ in doc]
-                else:
-                    ids = [idx for idx, _ in doc]
-                cts = np.fromiter((cnt for _, cnt in doc), dtype=self.dtype, count=len(doc))
-                gammad = gamma[d, :]
-                Elogthetad = Elogtheta[d, :]
-                expElogthetad = expElogtheta[d, :]
-                expElogbetad = self.expElogbeta[:, ids]
+            # The optimal phi_{dwk} is proportional to expElogthetad_k * expElogbetad_kw.
+            # phinorm is the normalizer.
+            # TODO treat zeros explicitly, instead of adding epsilon?
+            phinorm = np.dot(expElogthetad, expElogbetad) + epsilon
 
-                # The optimal phi_{dwk} is proportional to expElogthetad_k * expElogbetad_kw.
-                # phinorm is the normalizer.
-                # TODO treat zeros explicitly, instead of adding epsilon?
+            # Iterate between gamma and phi until convergence
+            for _ in range(self.iterations):
+                lastgamma = gammad
+                # We represent phi implicitly to save memory and time.
+                # Substituting the value of the optimal phi back into
+                # the update for gamma gives this update. Cf. Lee&Seung 2001.
+                gammad = self.alpha + expElogthetad * np.dot(cts / phinorm, expElogbetad.T)
+                Elogthetad = dirichlet_expectation(gammad)
+                expElogthetad = np.exp(Elogthetad)
                 phinorm = np.dot(expElogthetad, expElogbetad) + epsilon
-
-                # Iterate between gamma and phi until convergence
-                for _ in range(self.iterations):
-                    lastgamma = gammad
-                    # We represent phi implicitly to save memory and time.
-                    # Substituting the value of the optimal phi back into
-                    # the update for gamma gives this update. Cf. Lee&Seung 2001.
-                    gammad = self.alpha + expElogthetad * np.dot(cts / phinorm, expElogbetad.T)
-                    Elogthetad = dirichlet_expectation(gammad)
-                    expElogthetad = np.exp(Elogthetad)
-                    phinorm = np.dot(expElogthetad, expElogbetad) + epsilon
-                    # If gamma hasn't changed much, we're done.
-                    meanchange = mean_absolute_difference(gammad, lastgamma)
-                    if meanchange < self.gamma_threshold:
-                        converged += 1
-                        break
-                gamma[d, :] = gammad
-                assert gammad.dtype == self.dtype
-                if collect_sstats:
-                    # Contribution of document d to the expected sufficient
-                    # statistics for the M step.
-                    sstats[:, ids] += np.outer(expElogthetad.T, cts / phinorm)
-
-            if len(chunk) > 1:
-                logger.debug("%i/%i documents converged within %i iterations", converged, len(chunk), self.iterations)
-
+                # If gamma hasn't changed much, we're done.
+                meanchange = mean_absolute_difference(gammad, lastgamma)
+                if meanchange < self.gamma_threshold:
+                    converged += 1
+                    break
+            gamma[d, :] = gammad
+            assert gammad.dtype == self.dtype
             if collect_sstats:
-                # This step finishes computing the sufficient statistics for the
-                # M step, so that
-                # sstats[k, w] = \sum_d n_{dw} * phi_{dwk}
-                # = \sum_d n_{dw} * exp{Elogtheta_{dk} + Elogbeta_{kw}} / phinorm_{dw}.
-                sstats *= self.expElogbeta
-                assert sstats.dtype == self.dtype
+                # Contribution of document d to the expected sufficient
+                # statistics for the M step.
+                sstats[:, ids] += np.outer(expElogthetad.T, cts / phinorm)
 
-            assert gamma.dtype == self.dtype
-            return gamma, sstats
+        if len(chunk) > 1:
+            logger.debug("%i/%i documents converged within %i iterations", converged, len(chunk), self.iterations)
+
+        if collect_sstats:
+            # This step finishes computing the sufficient statistics for the
+            # M step, so that
+            # sstats[k, w] = \sum_d n_{dw} * phi_{dwk}
+            # = \sum_d n_{dw} * exp{Elogtheta_{dk} + Elogbeta_{kw}} / phinorm_{dw}.
+            sstats *= self.expElogbeta
+            assert sstats.dtype == self.dtype
+
+        assert gamma.dtype == self.dtype
+        return gamma, sstats
 
     def do_estep(self, chunk, state=None):
         """Perform inference on a chunk of documents, and accumulate the collected sufficient statistics.
@@ -779,7 +779,6 @@ class LdaModel():
                         pass_, chunk_no * chunksize + len(chunk), lencorpus
                     )
                     gammat = self.do_estep(chunk, other)
-
 
                 dirty = True
                 del chunk
