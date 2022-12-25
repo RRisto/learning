@@ -1,0 +1,24 @@
+name: pynamical-dev
+
+channels:
+    - conda-forge
+
+dependencies:
+    # required
+    - matplotlib
+    - numba
+    - numpy
+    - pandas
+
+    # extras
+    - jupyterlab
+
+    # linting/testing
+    - black=22.*
+    - coverage
+    - flake8
+    - flake8-bugbear
+    - isort
+    - pydocstyle
+    - pytest
+    - sphinx

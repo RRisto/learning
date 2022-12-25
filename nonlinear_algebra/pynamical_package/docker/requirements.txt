@@ -1,0 +1,21 @@
+black
+bottleneck
+coverage
+cython
+flake8
+flake8-bugbear
+isort
+jupyterlab
+matplotlib
+nodejs
+numba
+numexpr
+numpy
+pandas
+pillow
+pip
+pydocstyle
+pynamical
+pytest
+python == 3.10.*
+sphinx
