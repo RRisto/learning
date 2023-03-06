@@ -1,5 +1,4 @@
 FROM jupyter/scipy-notebook
 
-RUN pip install Cython
-RUN pip install pystan==3.6.0
-RUN pip install arviz==0.15
+COPY docker/requirements.txt /opt/requirements.txt
+RUN pip install -r /opt/requirements.txt
