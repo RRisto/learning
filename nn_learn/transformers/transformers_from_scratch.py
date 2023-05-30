@@ -44,6 +44,36 @@ class MultiHeadAttention(nn.Module):
         return output
 
 
+from einops import rearrange
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model, num_heads):
+        super(MultiHeadAttention, self).__init__()
+        assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
+
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_k = d_model // num_heads
+        self.scale = math.sqrt(d_model / num_heads)
+
+        self.qkv = nn.Linear(d_model, d_model * 3)
+        self.proj = nn.Linear(d_model, d_model)
+
+    def forward(self, x, x1, x2, mask=None):
+        """x1 and x2 are fillers, because original function inputed same data 3 times"""
+        x = self.qkv(x)
+        x = rearrange(x, 'b s (n k) -> b n s k', n=self.num_heads)
+        q, k, v = torch.chunk(x, 3, dim=-1)
+        s = (q @ k.transpose(-2, -1)) / self.scale
+        if mask is not None:
+                s = s.masked_fill(mask == 0, -1e9)
+        x = s.softmax(dim=-1) @ v
+        x = rearrange(x, 'n h s d -> n s (h d)', h=self.num_heads)
+        output = self.proj(x)
+        return output
+
+
 
 class PositionWiseFeedForward(nn.Module):
     def __init__(self, d_model, d_ff):
@@ -152,6 +182,7 @@ class Transformer(nn.Module):
 
 
 # sample data
+torch.manual_seed(1)
 src_vocab_size = 5000
 tgt_vocab_size = 5000
 d_model = 512
