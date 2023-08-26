@@ -1,0 +1,3 @@
+q0->q1 : Eps
+q1->q2 : Eps
+q2->qA : Eps

@@ -1,0 +1,7 @@
+q0->q1: Eps,Eps ; z
+q1->q1: A,Eps ; a
+q1->q1: T,Eps ; t
+q1->q2: C,Eps ; Eps
+q2->q2: A,a ; Eps
+q2->q2: T,t ; Eps
+q2->qA: _,z ; Eps

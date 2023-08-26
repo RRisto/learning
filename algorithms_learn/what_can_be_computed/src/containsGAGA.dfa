@@ -1,0 +1,11 @@
+q0->q0: CAT
+q0->q1: G
+q1->q2: A
+q1->q0: CT
+q1->q1: G
+q2->q3: G
+q2->q0: CAT
+q3->qA: A
+q3->q0: CT
+q3->q1: G
+

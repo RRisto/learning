@@ -1,0 +1,12 @@
+q0->q0: !_,Eps ; Eps
+q0->q1: C,Eps ; c
+q0->q1: A,Eps ; a
+q0->q1: G,Eps ; g
+q0->q1: T,Eps ; t
+q1->q2: A,Eps ; Eps
+q2->q3: C,c ; Eps
+q2->q3: A,a ; Eps
+q2->q3: G,g ; Eps
+q2->q3: T,t ; Eps
+q3->qA: A,Eps ; Eps
+

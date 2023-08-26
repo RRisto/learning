@@ -1,0 +1,11 @@
+q0->q0: CAT,Eps ; Eps
+q0->q1: G,Eps ; Eps
+q1->q2: A,Eps ; a
+q1->q0: CT,Eps ; Eps
+q1->q1: G,Eps ; Eps
+q2->q3: G,Eps ; Eps
+q2->q0: CAT,Eps ; Eps
+q3->qA: A,Eps ; a
+q3->q0: CT,Eps ; Eps
+q3->q1: G,Eps ; Eps
+

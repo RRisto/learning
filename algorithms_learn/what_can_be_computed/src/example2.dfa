@@ -1,0 +1,13 @@
+q0->q0: G
+q0->q1: A
+q1->q0: G
+q1->q1: A
+q1->q2: T
+q1->q3: C
+q1->qA: _
+q2->q0: GT
+q2->q1: A
+q2->q3: C
+q3->q2: T
+q3->q3: C
+q3->qA: _
