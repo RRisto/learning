@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  autogen-app:
+    build: ./autogen-app
+    ports:
+      - "8888:8888" # for Jupyter access
+    env_file:
+      - ./autogen-app/.env

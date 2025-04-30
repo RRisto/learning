@@ -1,0 +1,7 @@
+autogen-agentchat
+autogen-ext[openai]
+langfuse
+openai
+notebook
+jupyterlab
+
